@@ -1,7 +1,6 @@
---//=========================================================================\\
---|| SERVICES & VARIABLES
---\\=========================================================================//
+-- Services
 local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TeleportService = game:GetService("TeleportService")
@@ -11,9 +10,9 @@ local StarterGui = game:GetService("StarterGui")
 local CoreGui = game:GetService("CoreGui")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local TweenService = game:GetService("TweenService")
-
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+local Wind = loadstring(game:HttpGet("https://raw.githubusercontent.com/w1ndx/wind/main/Wind.lua"))()
 
 -- Global settings table
 local Settings = {
@@ -40,8 +39,8 @@ local skeletonESPEnabled, nameESPEnabled, healthESPEnabled, distanceESPEnabled, 
 local aimbotEnabled, fovCircleEnabled, aimbotConnection, aimbotTargetPart, aimbotFOV = false, false, nil, "Head", 30
 local fullbrightEnabled, defaultBrightness, defaultOutdoorAmbient = false, Lighting.Brightness, Lighting.OutdoorAmbient
 local espRenderDistance, espLineColor, espTextColor, espThickness, espTextSize = 1000, Color3.new(1,0,0), Color3.new(1,1,1), 2, 14
-local espPrinterColor = Color3.fromRGB(255, 105, 180) -- Pink color for printers
-local espCarColor = Color3.fromRGB(0, 170, 255) -- Light blue for cars
+local espPrinterColor = Color3.fromRGB(255, 105, 180)
+local espCarColor = Color3.fromRGB(0, 170, 255)
 local skeletonConnections, boxConnections, tracerConnections, printerEspDrawings, carEspDrawings = {}, {}, {}, {}, {}
 
 -- FOV Circle Drawing Object
@@ -56,9 +55,6 @@ fovCircle.ZIndex = 0
 -- Connections table for easy cleanup
 local connections = {}
 
--- Forward declare the GUI
-local FrostsHubGui
-
 --//=========================================================================\\
 --|| CORE FUNCTIONS (Teleport, ESP, Aimbot, etc.)
 --\\=========================================================================//
@@ -66,30 +62,29 @@ local FrostsHubGui
 -- New Teleport Function
 local function sitAndTeleport(targetPosition, targetLookVector)
     if isMoving then
-        StarterGui:SetCore("SendNotification", { Title = "Frosts HUB", Text = "Please wait for the current action to finish." })
+        StarterGui:SetCore("SendNotification", {
+            Title = "Vroy Family",
+            Text = "Please wait for the current action to finish."
+        })
         return
     end
     isMoving = true
-
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    if not character then isMoving = false; return end
-
+    if not character then
+        isMoving = false;
+        return
+    end
     local humanoid = character:WaitForChild("Humanoid")
     local rootPart = character:WaitForChild("HumanoidRootPart")
-    if not (humanoid and rootPart) then isMoving = false; return end
-
-    -- Make the player sit
+    if not (humanoid and rootPart) then
+        isMoving = false;
+        return
+    end
     humanoid.Sit = true
-
-    -- Wait a short moment to ensure they are sitting
     task.wait(0.2)
-
-    -- Teleport to the destination with the specified look vector
     if rootPart and rootPart.Parent then
         rootPart.CFrame = CFrame.new(targetPosition, targetPosition + targetLookVector)
     end
-    
-    -- Short delay before allowing another action
     task.wait(0.1)
     isMoving = false
 end
@@ -97,50 +92,575 @@ end
 -- Function to disable flying
 local function disableFly()
     local character = LocalPlayer.Character
-    if not flyEnabled or not character then return end
+    if not flyEnabled or not character then
+        return
+    end
     flyEnabled = false
-    
-    if bodyVelocity then bodyVelocity:Destroy(); bodyVelocity = nil end
-    if bodyGyro then bodyGyro:Destroy(); bodyGyro = nil end
-    
+    if bodyVelocity then
+        bodyVelocity:Destroy();
+        bodyVelocity = nil
+    end
+    if bodyGyro then
+        bodyGyro:Destroy();
+        bodyGyro = nil
+    end
     local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if humanoid then humanoid.PlatformStand = false end
+    if humanoid then
+        humanoid.PlatformStand = false
+    end
 end
 
 -- Function to enable flying
 local function enableFly()
     local character = LocalPlayer.Character
-    if flyEnabled or not character then return end
-    
+    if flyEnabled or not character then
+        return
+    end
     local rootPart = character:FindFirstChild("HumanoidRootPart")
     local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if not rootPart or not humanoid then return end
-
+    if not rootPart or not humanoid then
+        return
+    end
     flyEnabled = true
     humanoid.PlatformStand = true
-
     bodyVelocity = Instance.new("BodyVelocity")
     bodyVelocity.Velocity = Vector3.new(0, 0, 0)
     bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
     bodyVelocity.Parent = rootPart
-
     bodyGyro = Instance.new("BodyGyro")
     bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
     bodyGyro.P, bodyGyro.D = 10000, 500
     bodyGyro.CFrame = rootPart.CFrame
     bodyGyro.Parent = rootPart
-
     task.spawn(function()
         while flyEnabled and bodyVelocity and bodyGyro do
             local direction = Vector3.new(0, 0, 0)
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then direction = direction + Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then direction = direction - Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then direction = direction - Camera.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then direction = direction + Camera.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then direction = direction + Vector3.new(0, 1, 0) end
-            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then direction = direction - Vector3.new(0, -1, 0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                direction = direction + Camera.CFrame.LookVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                direction = direction - Camera.CFrame.LookVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                direction = direction - Camera.CFrame.RightVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                direction = direction + Camera.CFrame.RightVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                direction = direction + Vector3.new(0, 1, 0)
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+                direction = direction - Vector3.new(0, -1, 0)
+            end
+            if direction.Magnitude > 0 then
+                direction = direction.Unit * currentFlySpeed
+            end
+            if bodyVelocity then
+                bodyVelocity.Velocity = direction
+            end
+            if bodyGyro and rootPart then
+                bodyGyro.CFrame = CFrame.new(rootPart.Position, rootPart.Position + Camera.CFrame.LookVector)
+            end
+            RunService.Heartbeat:Wait()
+        end
+    end)
+end
 
-            if direction.Magnitude > 0 then direction = direction.Unit * currentFlySpeed end
+-- ESP Drawing Functions
+local function newLine()
+    local line = Drawing.new("Line");
+    line.Visible = false;
+    line.Thickness = espThickness;
+    line.Color = espLineColor;
+    return line
+end
+
+local function newText()
+    local text = Drawing.new("Text");
+    text.Visible = false;
+    text.Size = espTextSize;
+    text.Color = espTextColor;
+    text.Center = true;
+    text.Outline = true;
+    return text
+end
+
+local function isWallBetween(fromPos, toPos, ignoreCharacter)
+    local rayParams = RaycastParams.new();
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude;
+    rayParams.FilterDescendantsInstances = {LocalPlayer.Character, ignoreCharacter};
+    rayParams.IgnoreWater = true
+    return workspace:Raycast(fromPos, (toPos - fromPos).Unit * (toPos - fromPos).Magnitude, rayParams) ~= nil
+end
+
+-- Skeleton ESP
+local function createSkeleton(player)
+    if skeletonConnections[player] then
+        return
+    end
+    local lines = {
+        HeadToUpperTorso = newLine(),
+        UpperToLowerTorso = newLine(),
+        LeftShoulder = newLine(),
+        LeftUpperToLowerArm = newLine(),
+        LeftLowerToHand = newLine(),
+        RightShoulder = newLine(),
+        RightUpperToLowerArm = newLine(),
+        RightLowerToHand = newLine(),
+        LeftHip = newLine(),
+        LeftUpperToLowerLeg = newLine(),
+        LeftLowerToFoot = newLine(),
+        RightHip = newLine(),
+        RightUpperToLowerLeg = newLine(),
+        RightLowerToFoot = newLine()
+    }
+    local conn = RunService.RenderStepped:Connect(function()
+        local localHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local char = player.Character
+        if not skeletonESPEnabled or not localHRP or not char or not char:FindFirstChild("HumanoidRootPart") or (localHRP.Position - char.HumanoidRootPart.Position).Magnitude > espRenderDistance or (wallcheckEnabled and isWallBetween(localHRP.Position, char.HumanoidRootPart.Position, char)) then
+            for _, line in pairs(lines) do
+                line.Visible = false
+            end;
+            return
+        end
+        local function getPos(partName)
+            local part = char:FindFirstChild(partName);
+            if part and part:IsA("BasePart") then
+                local pos, onScreen = Camera:WorldToViewportPoint(part.Position);
+                if onScreen then
+                    return Vector2.new(pos.X, pos.Y), true
+                end
+            end;
+            return nil, false
+        end
+        local function draw(name, fromPart, toPart)
+            local fromPos, fromVisible = getPos(fromPart);
+            local toPos, toVisible = getPos(toPart);
+            local line = lines[name];
+            if fromPos and toPos and fromVisible and toVisible then
+                line.From = fromPos;
+                line.To = toPos;
+                line.Visible = true;
+                line.Color = espLineColor;
+                line.Thickness = espThickness
+            else
+                line.Visible = false
+            end
+        end
+        draw("HeadToUpperTorso", "Head", "UpperTorso");
+        draw("UpperToLowerTorso", "UpperTorso", "LowerTorso");
+        draw("LeftShoulder", "UpperTorso", "LeftUpperArm");
+        draw("LeftUpperToLowerArm", "LeftUpperArm", "LeftLowerArm");
+        draw("LeftLowerToHand", "LeftLowerArm", "LeftHand");
+        draw("RightShoulder", "UpperTorso", "RightUpperArm");
+        draw("RightUpperToLowerArm", "RightUpperArm", "RightLowerArm");
+        draw("RightLowerToHand", "RightLowerArm", "RightHand");
+        draw("LeftHip", "LowerTorso", "LeftUpperLeg");
+        draw("LeftUpperToLowerLeg", "LeftUpperLeg", "LeftLowerLeg");
+        draw("LeftLowerToFoot", "LeftLowerLeg", "LeftFoot");
+        draw("RightHip", "LowerTorso", "RightUpperLeg");
+        draw("RightUpperToLowerLeg", "RightUpperLeg", "RightLowerLeg");
+        draw("RightLowerToFoot", "RightLowerLeg", "RightFoot")
+    end)
+    skeletonConnections[player] = {
+        connection = conn,
+        lines = lines
+    }
+end
+
+local function cleanupSkeleton(player)
+    if skeletonConnections[player] then
+        skeletonConnections[player].connection:Disconnect();
+        for _, line in pairs(skeletonConnections[player].lines) do
+            line:Remove()
+        end;
+        skeletonConnections[player] = nil
+    end
+end
+
+-- Info ESP (Name, Health, Distance)
+local function createInfoESP(player)
+    if boxConnections[player] then
+        return
+    end
+    local nameText, healthText, distanceText = newText(), newText(), newText()
+    local conn = RunService.RenderStepped:Connect(function()
+        local localHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local char = player.Character
+        local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+        if not localHRP or not char or not humanoid or humanoid.Health <= 0 or not char:FindFirstChild("Head") then
+            nameText.Visible, healthText.Visible, distanceText.Visible = false, false, false;
+            return
+        end
+        local hrp, head = char.HumanoidRootPart, char.Head
+        local dist = (localHRP.Position - hrp.Position).Magnitude
+        if dist > espRenderDistance or (wallcheckEnabled and isWallBetween(localHRP.Position, hrp.Position, char)) then
+            nameText.Visible, healthText.Visible, distanceText.Visible = false, false, false;
+            return
+        end
+        local headPos, onScreenHead = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+        local hrpPos, onScreenHRP = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 1, 0))
+        if not (onScreenHead and onScreenHRP) then
+            nameText.Visible, healthText.Visible, distanceText.Visible = false, false, false;
+            return
+        end
+        local x, y, h = headPos.X, headPos.Y, math.abs(headPos.Y - hrpPos.Y)
+        if nameESPEnabled then
+            nameText.Text = player.Name;
+            nameText.Position = Vector2.new(x, y - 15);
+            nameText.Visible = true;
+            nameText.Color = espTextColor;
+            nameText.Size = espTextSize
+        end
+        if healthESPEnabled then
+            local health, maxHealth = math.floor(humanoid.Health), math.floor(humanoid.MaxHealth);
+            healthText.Text = string.format("HP: %d/%d", health, maxHealth);
+            healthText.Position = Vector2.new(x, y - 30);
+            healthText.Color = health > maxHealth * 0.75 and Color3.new(0,1,0) or (health > maxHealth * 0.25 and Color3.new(1,1,0) or Color3.new(1,0,0));
+            healthText.Visible = true;
+            healthText.Size = espTextSize
+        end
+        if distanceESPEnabled then
+            distanceText.Text = string.format("Dist: %d studs", math.floor(dist));
+            distanceText.Position = Vector2.new(x, y + h + 15);
+            distanceText.Visible = true;
+            distanceText.Color = espTextColor;
+            distanceText.Size = espTextSize
+        end
+    end)
+    boxConnections[player] = {
+        connection = conn,
+        nameText = nameText,
+        healthText = healthText,
+        distanceText = distanceText
+    }
+end
+
+local function cleanupInfoESP(player)
+    if boxConnections[player] then
+        boxConnections[player].connection:Disconnect();
+        boxConnections[player].nameText:Remove();
+        boxConnections[player].healthText:Remove();
+        boxConnections[player].distanceText:Remove();
+        boxConnections[player] = nil
+    end
+end
+
+-- Tracer ESP
+local function createTracerESP(player)
+    if tracerConnections[player] then
+        return
+    end
+    local tracerLine = newLine()
+    local conn = RunService.RenderStepped:Connect(function()
+        local localHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local targetHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if not tracerESPEnabled or not localHRP or not targetHRP or (localHRP.Position - targetHRP.Position).Magnitude > espRenderDistance or (wallcheckEnabled and isWallBetween(localHRP.Position, targetHRP.Position, char)) then
+            tracerLine.Visible = false;
+            return
+        end
+        local rootPos, onScreen = Camera:WorldToViewportPoint(targetHRP.Position)
+        if onScreen then
+            tracerLine.From, tracerLine.To, tracerLine.Visible = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y), Vector2.new(rootPos.X, rootPos.Y), true;
+            tracerLine.Color = espLineColor;
+            tracerLine.Thickness = espThickness
+        else
+            tracerLine.Visible = false
+        end
+    end)
+    tracerConnections[player] = {
+        connection = conn,
+        line = tracerLine
+    }
+end
+
+local function cleanupTracerESP(player)
+    if tracerConnections[player] then
+        tracerConnections[player].connection:Disconnect();
+        tracerConnections[player].line:Remove();
+        tracerConnections[player] = nil
+    end
+end
+
+-- Aimbot Logic
+local function aimbotLoop()
+    if not aimbotEnabled then
+        return
+    end
+    local localHRP = LocalPlayer.Character and LocalPlayer.Character.HumanoidRootPart
+    if not localHRP then
+        return
+    end
+    local closestPlayer, shortestDistance = nil, math.huge
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
+            local targetHRP = player.Character.HumanoidRootPart
+            local distance = (localHRP.Position - targetHRP.Position).Magnitude
+            if distance < shortestDistance and distance <= espRenderDistance then
+                local targetPart = player.Character:FindFirstChild(aimbotTargetPart)
+                if targetPart then
+                    local directionToTarget = (targetPart.Position - Camera.CFrame.p).Unit
+                    if math.deg(math.acos(Camera.CFrame.LookVector:Dot(directionToTarget))) <= aimbotFOV and not (wallcheckEnabled and isWallBetween(localHRP.Position, targetPart.Position, player.Character)) then
+                        closestPlayer, shortestDistance = player, distance
+                    end
+                end
+            end
+        end
+    end
+    if closestPlayer then
+        local targetPart = closestPlayer.Character:FindFirstChild(aimbotTargetPart)
+        if targetPart then
+            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.p, targetPart.Position), 0.5)
+        end
+    end
+end
+
+-- ESP Management Functions
+local function updatePlayerESP(player, enable)
+    if player == LocalPlayer then
+        return
+    end
+    cleanupSkeleton(player);
+    cleanupInfoESP(player);
+    cleanupTracerESP(player)
+    if enable then
+        if skeletonESPEnabled then
+            createSkeleton(player)
+        end
+        if nameESPEnabled or healthESPEnabled or distanceESPEnabled then
+            createInfoESP(player)
+        end
+        if tracerESPEnabled then
+            createTracerESP(player)
+        end
+    end
+end
+
+local function updateAllEspVisuals()
+    for _, player in pairs(Players:GetPlayers()) do
+        updatePlayerESP(player, true)
+    end
+end
+
+--//=========================================================================\\
+--|| GUI CREATION & MANAGEMENT (CoreUI Redesign)
+--\\=========================================================================//
+
+local Theme = {
+    Background = Color3.fromRGB(24, 24, 27),
+    Primary = Color3.fromRGB(39, 39, 42),
+    Secondary = Color3.fromRGB(63, 63, 70),
+    Accent = Color3.fromRGB(200, 0, 0), -- Changed to red
+    Text = Color3.fromRGB(244, 244, 245),
+    TextSecondary = Color3.fromRGB(161, 161, 170),
+    Font = {
+        Main = Enum.Font.Gotham,
+        Semibold = Enum.Font.GothamSemibold
+    },
+    TextSize = {
+        Normal = 14,
+        Small = 12,
+        Title = 16
+    },
+    CornerRadius = UDim.new(0, 6),
+    AnimationInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+}
+local Window = Wind:NewWindow("Vroy Family", "Blood Red")
+local MainTab = Window:NewTab("Main")
+local VisualsTab = Window:NewTab("Visuals")
+local TeleportTab = Window:NewTab("Teleport")
+local CombatTab = Window:NewTab("Combat")
+local MiscTab = Window:NewTab("Misc")
+local playerSection = MainTab:NewSection("Player Modifiers")
+playerSection:NewLabel("Walkspeed")
+playerSection:NewSlider(16, 200, function(value)
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        LocalPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = value
+    end
+end)
+
+playerSection:NewLabel("Jump Power")
+playerSection:NewSlider(50, 200, function(value)
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        LocalPlayer.Character:FindFirstChildOfClass("Humanoid").JumpPower = value
+    end
+end)
+
+local movementSection = MainTab:NewSection("Movement")
+movementSection:NewToggle("Fly", function(value)
+    if value then
+        enableFly()
+    else
+        disableFly()
+    end
+end)
+movementSection:NewSlider(10, 200, function(value)
+    currentFlySpeed = value
+end)
+
+local visualsPlayerEspSection = VisualsTab:NewSection("Player ESP")
+visualsPlayerEspSection:NewToggle("Skeleton ESP", function(s)
+    skeletonESPEnabled = s;
+    updateAllEspVisuals()
+end)
+visualsPlayerEspSection:NewToggle("Name ESP", function(s)
+    nameESPEnabled = s;
+    updateAllEspVisuals()
+end)
+visualsPlayerEspSection:NewToggle("Health ESP", function(s)
+    healthESPEnabled = s;
+    updateAllEspVisuals()
+end)
+visualsPlayerEspSection:NewToggle("Distance ESP", function(s)
+    distanceESPEnabled = s;
+    updateAllEspVisuals()
+end)
+visualsPlayerEspSection:NewToggle("Tracers", function(s)
+    tracerESPEnabled = s;
+    updateAllEspVisuals()
+end)
+visualsPlayerEspSection:NewToggle("Wallcheck", function(s)
+    wallcheckEnabled = s
+end)
+
+local visualsWorldEspSection = VisualsTab:NewSection("World ESP")
+visualsWorldEspSection:NewToggle("Printer ESP", function(s)
+    printerESPEnabled = s;
+end)
+visualsWorldEspSection:NewToggle("Car ESP", function(s)
+    carESPEnabled = s;
+end)
+
+local aimbotSection = CombatTab:NewSection("Aimbot")
+aimbotSection:NewToggle("Enable Aimbot", function(s)
+    aimbotEnabled = s;
+end)
+aimbotSection:NewToggle("Show FOV Circle", function(s)
+    fovCircleEnabled = s;
+end)
+aimbotSection:NewSlider(1, 180, aimbotFOV, function(v)
+    aimbotFOV = v
+end)
+aimbotSection:NewDropdown({"Head", "HumanoidRootPart", "Torso"}, function(s)
+    aimbotTargetPart = s
+end)
+
+local teleportSection = TeleportTab:NewSection("NPC Teleport")
+local allNpcs = {}
+local selectedNpc = nil
+local originalHipHeight = 0
+
+local function findNpcs()
+    allNpcs = {}
+    local npcNames = {}
+    for _, descendant in ipairs(Workspace:GetDescendants()) do
+        if descendant:IsA("Model") and descendant:FindFirstChildOfClass("Humanoid") and not Players:GetPlayerFromCharacter(descendant) then
+            table.insert(allNpcs, {name = descendant.Name, instance = descendant})
+            table.insert(npcNames, descendant.Name)
+        end
+    end
+    teleportSection:NewDropdown(npcNames, function(value)
+        for _, item in ipairs(allNpcs) do
+            if item.name == value then
+                selectedNpc = item.instance
+                break
+            end
+        end
+    end)
+end
+
+teleportSection:NewButton("Refresh NPCs", function() findNpcs() end)
+teleportSection:NewButton("Teleport to NPC", function()
+    if selectedNpc and selectedNpc:FindFirstChild("HumanoidRootPart") then
+        local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            originalHipHeight = humanoid.HipHeight
+            humanoid.HipHeight = -5
+            LocalPlayer.Character.HumanoidRootPart.CFrame = selectedNpc.HumanoidRootPart.CFrame + Vector3.new(0,5,0)
+            task.wait(0.5)
+            humanoid.HipHeight = originalHipHeight
+        end
+    end
+end)
+
+local miscSection = MiscTab:NewSection("Utilities")
+miscSection:NewToggle("Anti-AFK", function(s) antiAfkEnabled = s end)
+miscSection:NewToggle("No Clip", function(s)
+    noClipEnabled=s;
+    if not s and LocalPlayer.Character then
+        for _,p in ipairs(LocalPlayer.Character:GetDescendants()) do
+            if p:IsA("BasePart") then p.CanCollide=true end
+        end
+    end
+end)
+miscSection:NewToggle("Fullbright", function(s) fullbrightEnabled=s; Lighting.Brightness=s and 1 or defaultBrightness; Lighting.OutdoorAmbient=s and Color3.new(1,1,1) or defaultOutdoorAmbient end)
+local customName = "Vroy Family"
+miscSection:NewTextInput("Name Changer", "Enter custom name", function(text) customName = text end)
+local _, updateNameChangerToggle = miscSection:NewToggle("Enable Name Changer", function(state)
+    if state then
+        if not customName or customName:gsub("%s", "") == "" then
+            StarterGui:SetCore("SendNotification", { Title = "Vroy Family", Text = "Please enter a name first." });
+            return
+        end
+        if nameChangerCoroutine then task.cancel(nameChangerCoroutine) end;
+        nameChangerCoroutine = task.spawn(function()
+            while task.wait(0.5) do
+                pcall(function()
+                    local nameLabel = LocalPlayer.Character.Head.displayGUI.nameLabel;
+                    nameLabel.Text = customName
+                end)
+            end
+        end)
+    else
+        if nameChangerCoroutine then task.cancel(nameChangerCoroutine); nameChangerCoroutine = nil end;
+        pcall(function()
+            local nameLabel = LocalPlayer.Character.Head.displayGUI.nameLabel;
+            nameLabel.Text = LocalPlayer.Name
+        end)
+    end
+end)
+
+-- Main Event Loops
+table.insert(connections, RunService.RenderStepped:Connect(function()
+    if fovCircleEnabled and aimbotEnabled and LocalPlayer.Character and Camera.ViewportSize then
+        local radius = (math.tan(math.rad(aimbotFOV / 2)) * (Camera.ViewportSize.Y / 2)) / math.tan(math.rad(Camera.FieldOfView / 2))
+        fovCircle.Radius = radius
+        fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        fovCircle.Visible = true
+    else
+        fovCircle.Visible = false
+    end
+end))
+table.insert(connections, RunService.RenderStepped:Connect(function()
+    if aimbotEnabled and aimbotConnection == nil and UserInputService:IsKeyDown(Enum.KeyCode.ButtonL2) then
+        aimbotConnection = RunService.RenderStepped:Connect(aimbotLoop)
+    elseif not (UserInputService:IsKeyDown(Enum.KeyCode.ButtonL2) or UserInputService:IsKeyDown(Enum.KeyCode.RightClick)) and aimbotConnection then
+        aimbotConnection:Disconnect()
+        aimbotConnection = nil
+    end
+end))
+table.insert(connections, RunService.Stepped:Connect(function()
+    if noClipEnabled and LocalPlayer.Character then
+        for _,p in ipairs(LocalPlayer.Character:GetDescendants()) do
+            if p:IsA("BasePart") then p.CanCollide = false end
+        end
+    end
+    if antiAfkEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") and tick() % 60 < 1 then
+        LocalPlayer.Character.Humanoid.Jump = true
+    end
+end))
+table.insert(connections, LocalPlayer.CharacterAdded:Connect(function(character)
+    if flyEnabled then disableFly() end
+end))
+
+-- Initial Setup
+for _,player in pairs(Players:GetPlayers()) do updatePlayerESP(player, true) end
+if LocalPlayer.Character then onCharacter(LocalPlayer.Character) end
+
+-- Final Touches
+findNpcs()
+end)
             
             if bodyVelocity then bodyVelocity.Velocity = direction end
             if bodyGyro and rootPart then bodyGyro.CFrame = CFrame.new(rootPart.Position, rootPart.Position + Camera.CFrame.LookVector) end
